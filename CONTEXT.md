@@ -12,6 +12,8 @@ A single-user tool for setting long-term ambitions and tracing implementation wo
 
 The top tier: a long-term ambition that outlives any single quarter (for example, "become a staff engineer"). A Career Goal spans many Quarters and has no completion date of its own; it is reviewed, not closed.
 
+A Career Goal can be **archived**, and never deleted. Archiving hides it from active views and leaves its Objectives and past Quarters exactly as they were; deleting one would orphan every Quarter that reported work against it, which is the one thing this app exists to keep straight.
+
 Not a "Milestone" — see *Retired terms*.
 
 ### Quarterly Objective
@@ -23,6 +25,8 @@ The middle tier: a concrete result committed to within one Quarter, and the leve
 A first-class, dated container — a calendar quarter with a start and an end date (for example `2026-Q3`) — that can be listed and reviewed after it has closed. Quarter is an entity you navigate, not merely a label stamped on a Quarterly Objective: the closed Quarter is the unit of review.
 
 A Quarter **closes at its calendar boundary**, without being asked to: the first use of the app after a boundary closes the Quarter that ended and carries forward whatever was unachieved in it. Closing is a date rather than an act — reviewing is what you do afterwards, and dropping only ever happens there.
+
+A Quarter that has **not started yet** can still hold Objectives and Outcomes, because planning is forward-looking by nature. Nothing in a future Quarter can take a Time Box until that Quarter begins.
 
 ### Implementation Outcome
 
@@ -64,9 +68,41 @@ If more than one Quarter has elapsed since the app was last used, the carry **ju
 
 How an Outcome or Objective ends when it is abandoned rather than achieved. Dropping is a decision taken at the Quarter review and is never automatic. A dropped Outcome still counts: the boxes it took were spent, its Effort is settled by being dropped rather than by achievement, and it stays in its Objective's and its Quarter's figures.
 
+**Deletion is not dropping.** An Outcome may be deleted only while it has no Effort; once a box has been spent the only way out is dropping, so spent time cannot be erased from the figures. Nothing carries Effort yet in slice 1, which is why deletion is freely available there.
+
+When every Outcome of an Objective is dropped, the Objective ends with them: it is not carried forward, and it stays in its closed Quarter's record with the boxes those Outcomes consumed.
+
+### Planning view, Implementation view
+
+The two views the app offers over the same data, and the only thing "mode" means here. The **Planning view** is for making vision, finding gaps and setting rank; the **Implementation view** is the ranked list of the Quarter's work, where Time Boxes get run.
+
+Neither view gates anything: every action is available in both, and the remembered toggle only means the app reopens where you left it. **Mode is not a domain term** — nothing in the model is ever "in planning" or "in implementation".
+
+### Rank
+
+A single manual order over the current Quarter's Implementation Outcomes — parentless ones and Emergencies included — set by reordering them in the Planning view. It is the order the Implementation view obeys, and the order the board will obey inside its columns.
+
+Rank belongs to the Outcome, so a carried Outcome keeps its position. An Emergency is ranked like anything else and merely marked: urgency and value are different axes, and the app does not presume to know which wins.
+
+### Gap
+
+A structural hole in the plan, and always a hole with a next action attached: a Career Goal with no Quarterly Objective in the Quarter, a Quarterly Objective with no Implementation Outcomes, or a parentless Outcome that is not an Emergency. Gaps are computed from the model, never recorded.
+
+### Board
+
+The Implementation view drawn as cards in three fixed columns — *Not started*, *Doing*, *Achieved* — each column ordered by Rank. It shows the same Outcomes as the list, achieved ones included, arranged rather than listed. Which rendering you are in is a preference, not a mode, and no column carries a WIP limit.
+
+### Stage
+
+Where an Outcome sits on the board: **Not started**, **Doing**, or **Achieved**. Achieved is the Outcome's terminal state, so the two live stages are Not started and Doing.
+
+Moving to Doing is a claim about attention — "I am on this" — rather than a measurement: you can drag a card there, and completing a Time Box puts it there too, since a finished box is evidence of attention. Nothing returns an Outcome to Not started automatically; dragging does. Nothing ever leaves Achieved.
+
 ### Card
 
 UI shorthand only. A Card is how an Implementation Outcome is *displayed* on the board, not a thing in itself. Don't use "card" in specs, briefs, issue titles or acceptance criteria where an Outcome is meant.
+
+A card shows four things: the Outcome's wording, its parent-chain indicator (or its explicit "no parent" state), its Effort, and its Emergency mark if it has one.
 
 ### Traceability
 
@@ -93,15 +129,8 @@ The mark's entire job is to change the question the Quarter review asks. An ordi
 ## Settled elsewhere
 
 - **Where the data lives, and what "portable" obliges** — a local-first static app, no backend, no account, browser storage with JSON export/import. See `docs/adr/0001-local-first-static-app-with-browser-store.md`.
+- **Schema migration** — a change to the shape of `AppState` bumps the schema version and ships a forward migration applied on load or import; an export from a newer version than the app understands is refused rather than truncated. No shape change exists yet.
 
 ## Open decisions
 
-- **The board's column and stage model** — issue #1 asks for a drag-and-drop Kanban view but never says what the columns mean, whether stages are fixed or user-defined, or what a card moving between them asserts. Filed as issue #8; its absence is why the board is not part of the hierarchy slice.
-- **Whether work can be created in a future Quarter** (issue #6) — postponing an Outcome into a Quarter that has not started yet is a planning act, and the planning/implementation split in issue #6 is ungrilled, so nothing here says whether a future Quarter is writable.
-- **An Objective whose Outcomes are all dropped** (found by the issue #5 audit) — an Objective carries forward only while at least one of its Outcomes is still unachieved, and what becomes of the Objective that has none left is undecided.
-- **Goal deletion or archival** (found by the issue #5 audit) — Goals are reviewed and never closed, and whether one can be removed at all is undecided.
-- **Deleting an Outcome that has Effort** (found by the issue #5 audit) — whether deleting discards the boxes already spent is undecided, and the Quarter review's path deletes parentless Outcomes.
-- **Schema migration** (found by the issue #5 audit) — a schema version is required in `AppState`, but nothing yet says what happens when the shape changes.
-- **Planning vs implementation modes** (issue #6) — mode is not yet a term, and issue #1's four key features do not mention it.
-
-The terms above accrete as issues #2, #4 and #6 are grilled; there is no separate tracking issue for the vocabulary.
+None outstanding. Every issue's vocabulary is settled: #1's anchor spec is sliced into #7, #2, #4, #6 and #8, each with a brief or a decided model. New terms are added here as they are resolved; there is no separate tracking issue for the vocabulary.
