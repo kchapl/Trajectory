@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trajectory</title>
+<meta name="description" content="Set long-term ambitions and trace implementation work back up to them.">
+<link rel="stylesheet" href="src/tokens.css">
+<link rel="stylesheet" href="src/m3.css">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <main id="app"></main>
+  <div id="snack" class="md-snackbar" role="status" aria-live="polite"></div>
+  <dialog id="dialog" class="md-dialog" aria-labelledby="dialog-headline">
+    <div class="md-dialog__surface">
+      <h2 class="md-dialog__headline" id="dialog-headline"></h2>
+      <p class="md-dialog__body" id="dialog-body"></p>
+      <div class="md-dialog__actions">
+        <button type="button" class="md-button md-button--text md-layer" id="dialog-cancel">Cancel</button>
+        <button type="button" class="md-button md-button--text md-button--danger md-layer" id="dialog-confirm">Confirm</button>
+      </div>
+    </div>
+  </dialog>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+  <noscript>
+    <p style="max-width:60ch;margin:40px auto;padding:0 24px;font-size:16px">
+      trajectory is a static app driven by JavaScript. Enable it, or serve the folder and open it in a browser.
+    </p>
+  </noscript>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
