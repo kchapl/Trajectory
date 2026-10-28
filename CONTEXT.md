@@ -70,17 +70,21 @@ How an Outcome or Objective ends when it is abandoned rather than achieved. Drop
 
 **Deletion is not dropping.** An Outcome may be deleted only while it has no Effort; once a box has been spent the only way out is dropping, so spent time cannot be erased from the figures. Nothing carries Effort yet in slice 1, which is why deletion is freely available there.
 
+An Idea is **discarded**, not dropped: dropping settles figures on something that consumed time, and an Idea has no figures to settle.
+
 When every Outcome of an Objective is dropped, the Objective ends with them: it is not carried forward, and it stays in its closed Quarter's record with the boxes those Outcomes consumed.
 
 ### Planning view, Implementation view
 
-The two views the app offers over the same data, and the only thing "mode" means here. The **Planning view** is for making vision, finding gaps and setting rank; the **Implementation view** is the ranked list of the Quarter's work, where Time Boxes get run.
+The app's two **modes**, and a mode is a real switch rather than a skin over the same list: the **Planning view** is the strategic surface, for making vision, finding gaps and setting rank; the **Implementation view** is the operational surface, where the Quarter is worked and Time Boxes are run.
 
-Neither view gates anything: every action is available in both, and the remembered toggle only means the app reopens where you left it. **Mode is not a domain term** — nothing in the model is ever "in planning" or "in implementation".
+The toggle between them is a **mode switch**, and it is remembered, so the app reopens where you left it. Each mode renders the same Quarter in the shape its job needs — Planning as the ranked list, Implementation as the board — over the same data, differing in purpose rather than in content.
+
+Mode belongs to the app, not to the work: no Outcome, Objective or Quarter is ever "in planning" or "in implementation", and switching modes changes nothing about the model.
 
 ### Rank
 
-A single manual order over the current Quarter's Implementation Outcomes — parentless ones and Emergencies included — set by reordering them in the Planning view. It is the order the Implementation view obeys, and the order the board will obey inside its columns.
+A single manual order over the current Quarter's Implementation Outcomes — parentless ones and Emergencies included — set by reordering them in the Planning view. The board obeys it inside its columns.
 
 Rank belongs to the Outcome, so a carried Outcome keeps its position. An Emergency is ranked like anything else and merely marked: urgency and value are different axes, and the app does not presume to know which wins.
 
@@ -88,9 +92,11 @@ Rank belongs to the Outcome, so a carried Outcome keeps its position. An Emergen
 
 A structural hole in the plan, and always a hole with a next action attached: a Career Goal with no Quarterly Objective in the Quarter, a Quarterly Objective with no Implementation Outcomes, or a parentless Outcome that is not an Emergency. Gaps are computed from the model, never recorded.
 
+Only a Quarter's plan can have Gaps. The Inbox is outside the plan, so an Idea is never a Gap however long it sits there — which is why parked thought does not turn into review debt.
+
 ### Board
 
-The Implementation view drawn as cards in three fixed columns — *Not started*, *Doing*, *Achieved* — each column ordered by Rank. It shows the same Outcomes as the list, achieved ones included, arranged rather than listed. Which rendering you are in is a preference, not a mode, and no column carries a WIP limit.
+The Implementation view: the Quarter's Outcomes drawn as cards in three fixed columns — *Not started*, *Doing*, *Achieved* — each column ordered by Rank. It shows the same Outcomes the Planning view lists, achieved ones included, arranged rather than listed. The board is the Implementation mode's shape, and the Planning view never shows columns. No column carries a WIP limit.
 
 ### Stage
 
@@ -118,9 +124,30 @@ An Emergency is **parentless by definition**: an Outcome that has a parent is no
 
 The mark's entire job is to change the question the Quarter review asks. An ordinary parentless Outcome is asked to be **attached or dropped**; an Emergency is asked to be **achieved or dropped**, since finding it a parent was never the point. In every other respect it is an ordinary Outcome: its Time Boxes count toward its Quarter, and if it is still unachieved at a boundary it carries forward like anything else.
 
+An Emergency is **not** an Idea. An Emergency is already an Implementation Outcome, placed in a Quarter, able to take Time Boxes; only its parent is missing. An Idea is not yet anything and may never be done at all. Capturing in a hurry is one gesture with two doors, and which door you take is the question *have I decided to do this?*
+
+### Idea
+
+A rough thought captured before it is worth committing to: a phrase, with no Quarter, no parent, no Stage, no Rank and no Effort. An Idea is **not** an Implementation Outcome and not one of the three tiers — it is shapeless, and triage is what gives it a shape: it may become a Career Goal, a Quarterly Objective or an Implementation Outcome, or be discarded.
+
+Because it has no Quarter, an Idea never appears in a Quarter's figures, never takes a Time Box, and is never achieved. Nothing is spent on one, so discarding an Idea is free and leaves no record.
+
+Not a "Backlog" — see *Retired terms*.
+
+### Inbox
+
+The single place Ideas live. It is **global**: it belongs to no Quarter and is not filtered by one, because an Idea has not been placed in time yet. It is expected to be large and to be cleared in batches by triage.
+
+Unlike a Quarter, the Inbox has no plan to be consistent with: it is never a Gap, never enters the Quarter review, and never appears in a Quarter's figures. A long Inbox is not a backlog of committed work; it is unexamined thought.
+
+### Promote
+
+The act that turns an Idea into one of the three tiers. Promotion **consumes** the Idea: it leaves the Inbox, and the Career Goal, Quarterly Objective or Implementation Outcome it became is the only record of it. There is no "promoted from" link, because the app keeps no edit history and nothing was spent on an Idea worth tracing.
+
 ## Retired terms
 
 - **Milestone** — issue #1 says "Career goal" in its hierarchy line and "Career milestone" in its traceability line. These are one concept; the canonical name is **Career Goal**. Don't reintroduce Milestone as a fourth tier unless it earns behaviour that distinguishes it.
+- **Backlog**, **parking lot**, **pool**, **someday/maybe** — all mean the **Inbox**, and none of them is a Quarter: an Outcome parked in a future Quarter is not uncommitted work, it is work already committed to a Quarter that has not started. See `docs/adr/0003-the-inbox-is-outside-the-tiers.md`.
 - **Task**, **implementation task**, **implementation level**, **ticket** — all mean **Implementation Outcome**. "Task" was the tier-three noun until 2026-10-27 and was retired because the tier is a unit of *result*, not of activity. Code written from this glossary must not introduce a `Task` type.
 - **"Card" as a domain noun** — see above; it names a rendering, not a model.
 - **"Outcome" used bare for tier two** — tier two is a Quarterly Objective; "Outcome" alone means an Implementation Outcome. The qualifier carries the tier, so don't let the two nouns collapse into each other.
@@ -128,9 +155,10 @@ The mark's entire job is to change the question the Quarter review asks. An ordi
 
 ## Settled elsewhere
 
+- **Where rough ideas live, and what triage means** — a single global Inbox outside the three tiers; promotion consumes the Idea, discarding it is free. See `docs/adr/0003-the-inbox-is-outside-the-tiers.md`.
 - **Where the data lives, and what "portable" obliges** — a local-first static app, no backend, no account, browser storage with JSON export/import. See `docs/adr/0001-local-first-static-app-with-browser-store.md`.
 - **Schema migration** — a change to the shape of `AppState` bumps the schema version and ships a forward migration applied on load or import; an export from a newer version than the app understands is refused rather than truncated. No shape change exists yet.
 
 ## Open decisions
 
-None outstanding. Every issue's vocabulary is settled: #1's anchor spec is sliced into #7, #2, #4, #6 and #8, each with a brief or a decided model. New terms are added here as they are resolved; there is no separate tracking issue for the vocabulary.
+None outstanding. Every issue's vocabulary is settled: #1's anchor spec is sliced into #7, #2, #4, #6 and #8, each with a brief or a decided model, and #12's rough ideas now have a home in the Inbox. New terms are added here as they are resolved; there is no separate tracking issue for the vocabulary.
