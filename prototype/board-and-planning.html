@@ -1,0 +1,869 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Not production, not the real app.
+
+  Plan: two variants of the Planning view + Implementation board, switchable via
+  ?variant=A|B, ?view=planning|implementation and (variant A) ?scope=<id>, on a
+  standalone page because the app has no routes or components yet (UI.md sub-shape B).
+
+  The question: the two views should be different jobs, not two renderings of one
+  list. Planning is strategic — Career Goal > Quarterly Objective > Outcome, read as
+  a ladder, with gaps and rank as the tools. Implementation is operational — a board
+  you push work across, with counts and Effort as the tools.
+
+  Second question, seeded deliberately: there are 180 Ideas in the Inbox (see
+  docs/adr/0003-the-inbox-is-outside-the-tiers.md). None of them is in a Quarter.
+  Can you hold that much uncommitted thought without the quarter itself getting noisy?
+  A answers with a navigation rail you drill into; B answers with a page you fold up.
+
+  Quarter 2026-Q4, carried from 2026-Q3. 30 Outcomes, 66 boxes, 32 of them carried in.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype — planning and implementation views</title>
+<style>
+  :root{
+    --paper:#f7f4ee;
+    --surface:#fffefb;
+    --sunk:#faf7f1;
+    --ink:#1a1815;
+    --ink-soft:#4b453d;
+    --muted:#7b7268;
+    --line:#e5ded2;
+    --line-strong:#cdc4b5;
+    --accent:#a8431f;
+    --accent-soft:#f7e7de;
+    --accent-ink:#7d2f13;
+    --green:#3d6a4f;
+    --green-soft:#eaf0e8;
+    --amber:#9d6a12;
+    --amber-soft:#f9eed8;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);color:var(--ink);font-family:var(--font);
+    font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    font-variant-numeric:tabular-nums;
+  }
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+  h1,h2,h3,h4,p,figure{margin:0}
+  ul,ol{margin:0;padding:0;list-style:none}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* shared bits ------------------------------------------------------- */
+  .pill{display:inline-block;font-size:12.5px;line-height:1;letter-spacing:.04em;text-transform:uppercase;font-weight:700;padding:5px 7px;border-radius:4px;white-space:nowrap}
+  .pill-em{background:var(--amber-soft);color:var(--amber)}
+  .carry{color:var(--accent-ink)}
+  .num{font-variant-numeric:tabular-nums}
+
+  .shell-head{max-width:1440px;margin:0 auto;padding:40px 32px 26px}
+  .eyebrow{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);font-weight:700}
+  .shell-head h1{font-size:clamp(30px,3.4vw,40px);font-weight:650;letter-spacing:-.02em;margin:12px 0 14px;line-height:1.15}
+  .lede{max-width:74ch;color:var(--ink-soft);font-size:17.5px;line-height:1.55}
+  .lede b{color:var(--ink);font-weight:650}
+  .meta{display:flex;flex-wrap:wrap;gap:10px 34px;align-items:baseline;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+  .vnote{max-width:82ch;font-size:15px;color:var(--muted);flex:1 1 480px;line-height:1.55}
+  .vnote strong{color:var(--ink);font-weight:650}
+  .hint{font-size:13px;color:var(--muted);white-space:nowrap}
+
+  /* switcher — deliberately not part of either design ------------------ */
+  .switchbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:2px;background:#1a1815;color:#f7f4ee;border-radius:999px;padding:6px;box-shadow:0 12px 34px rgba(26,24,21,.3)}
+  .switchbar button{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:17px;color:#f7f4ee;text-align:center}
+  .switchbar button:hover{background:rgba(255,255,255,.14)}
+  .vlabel{min-width:196px;text-align:center;font-size:13px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:#f3ede4}
+
+  /* shared view toggle ------------------------------------------------ */
+  .vtoggle{display:inline-flex;background:#efeae0;border-radius:10px;padding:4px;gap:2px;flex:0 0 auto}
+  .vtoggle button{font-size:15px;font-weight:600;padding:8px 16px;border-radius:7px;color:var(--muted);white-space:nowrap}
+  .vtoggle button.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(26,24,21,.12)}
+
+  /* ==================================================================
+     VARIANT A — Rail. The tree is the navigation; the pane is the work.
+     ================================================================== */
+  .a-shell{max-width:1440px;margin:0 auto;padding:0 32px 150px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:36px;align-items:start}
+  .a-rail{position:sticky;top:24px;border:1px solid var(--line);border-radius:16px;background:var(--sunk);padding:20px 18px 18px}
+  .a-rail-head{padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .a-q{font-size:20px;font-weight:650;letter-spacing:-.01em}
+  .a-q-sub{font-size:14px;color:var(--muted);margin-top:3px}
+  .a-rail-sec{margin-top:18px}
+  .a-sec-label{font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .a-node{display:flex;align-items:baseline;gap:10px;width:100%;padding:9px 10px;border-radius:9px;font-size:15.5px;line-height:1.35;color:var(--ink-soft)}
+  .a-node:hover{background:rgba(255,255,255,.75)}
+  .a-node.is-on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .a-node-title{flex:1 1 auto;min-width:0}
+  .a-node-n{font-size:14px;color:var(--muted);font-weight:500;flex:0 0 auto}
+  .a-goal{margin-top:20px}
+  .a-goal>h3{font-size:17px;font-weight:650;line-height:1.3;letter-spacing:-.01em}
+  .a-obj-list{margin:7px 0 0 3px;padding-left:11px;border-left:2px solid var(--line)}
+  .a-obj{padding:6px 8px;border-radius:7px;width:100%;display:flex;gap:8px;align-items:baseline;font-size:15px;color:var(--ink-soft);line-height:1.35}
+  .a-obj:hover{background:rgba(255,255,255,.75)}
+  .a-obj.is-on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .a-obj span:first-child{flex:1 1 auto;min-width:0}
+  .a-obj .n{font-size:13.5px;color:var(--muted);font-weight:500}
+  .a-hole{font-size:14.5px;font-style:italic;color:var(--accent-ink);padding:6px 8px;line-height:1.4}
+  .a-rail-foot{margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);line-height:1.65}
+  .a-rail-foot b{color:var(--ink);font-weight:650}
+
+  .a-pane{min-width:0}
+  .a-pane-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid var(--line-strong);flex-wrap:wrap}
+  .a-crumb{font-size:14px;color:var(--muted);letter-spacing:.02em}
+  .a-title{font-size:27px;font-weight:650;letter-spacing:-.02em;line-height:1.2;margin-top:5px}
+  .a-sub{font-size:15px;color:var(--muted);margin-top:4px}
+
+  /* planning list */
+  .a-row{display:grid;grid-template-columns:46px minmax(0,1fr) 168px;gap:18px;align-items:start;padding:15px 4px;border-bottom:1px solid var(--line)}
+  .a-row:hover{background:rgba(255,255,255,.6)}
+  .a-rank{font-size:15px;color:var(--muted);padding-top:3px}
+  .a-row-title{font-size:18px;font-weight:600;line-height:1.35;letter-spacing:-.005em}
+  .a-chain{font-size:14px;color:var(--muted);margin-top:4px;line-height:1.45}
+  .a-chain .sep{color:var(--line-strong);padding:0 5px}
+  .a-none{font-style:italic;color:var(--accent-ink)}
+  .a-effort{text-align:right;font-size:14px;color:var(--muted);line-height:1.45;padding-top:2px}
+  .a-effort b{display:block;font-size:16px;font-weight:650;color:var(--ink-soft)}
+  .a-split{color:var(--accent-ink);margin-top:2px}
+
+  /* review */
+  .a-review{margin-top:30px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .a-review h3{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);font-weight:700}
+  .a-review>p{font-size:15px;color:var(--muted);margin-top:4px}
+  .a-review li{padding:14px 0;border-top:1px solid var(--line);font-size:16.5px;line-height:1.45}
+  .a-review li:first-of-type{border-top:0}
+  .a-review .next{font-size:14.5px;color:var(--muted);margin-top:3px}
+  .a-review .next b{color:var(--ink-soft);font-weight:600}
+
+  /* board */
+  .a-board-sum{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline;font-size:15px;color:var(--muted);padding:16px 0 18px}
+  .a-board-sum b{color:var(--ink);font-weight:650}
+  .a-hide{font-size:14.5px;font-weight:600;color:var(--accent-ink);text-decoration:underline;text-underline-offset:3px;margin-left:auto}
+  .a-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+  .a-col{background:var(--sunk);border:1px solid var(--line);border-radius:14px;padding:12px 12px 14px;min-height:120px}
+  .a-col-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:2px 4px 11px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+  .a-col-head h3{font-size:14px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--ink-soft)}
+  .a-col-n{font-size:15px;color:var(--muted)}
+  .a-card{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:13px 14px 12px;margin-top:10px}
+  .a-card-title{font-size:16.5px;font-weight:600;line-height:1.35}
+  .a-card .a-chain{font-size:13.5px;margin-top:5px}
+  .a-card-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:10px;font-size:13.5px;color:var(--muted)}
+  .a-card-foot b{font-size:14.5px;font-weight:650;color:var(--ink-soft)}
+  .a-card.is-em{border-left:3px solid var(--amber);padding-left:12px}
+  .a-card.is-achieved{background:var(--green-soft);border-color:#dbe4d7}
+  .a-card.is-achieved .a-card-title{color:var(--ink-soft);font-weight:550}
+  .a-done{color:var(--green);font-weight:700;margin-left:4px}
+  .a-empty,.a-col-empty,.b-col-empty{font-size:14.5px;color:var(--muted);padding:14px 4px;line-height:1.5}
+  .a-col-more{font-size:14px;color:var(--muted);padding:16px 4px;line-height:1.5}
+  .a-col-more button{color:var(--accent-ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+  /* ==================================================================
+     VARIANT B — Document. No rail; the page itself is the navigation.
+     ================================================================== */
+  .b-shell{max-width:1080px;margin:0 auto;padding:0 32px 150px}
+  .b-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:16px;border-bottom:2px solid var(--line-strong);flex-wrap:wrap}
+  .b-q{font-size:20px;font-weight:650;letter-spacing:-.01em}
+  .b-q-sub{font-size:14px;color:var(--muted);margin-top:3px}
+  .b-strip{display:flex;flex-wrap:wrap;gap:6px 24px;font-size:15px;color:var(--muted);padding:16px 0 4px}
+  .b-strip b{color:var(--ink);font-weight:650}
+
+  .b-review{margin:22px 0 0;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:18px 22px 20px}
+  .b-review h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);font-weight:700}
+  .b-review ul{margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:0 34px}
+  .b-review li{padding:13px 0;border-top:1px solid var(--line);font-size:16px;line-height:1.45}
+  .b-review li:nth-child(-n+2){border-top:0}
+  .b-review .next{font-size:14.5px;color:var(--muted);margin-top:3px}
+  .b-review .next b{color:var(--ink-soft);font-weight:600}
+
+  .b-index{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;align-items:center}
+  .b-index a{font-size:14.5px;font-weight:600;color:var(--ink-soft);text-decoration:none;border:1px solid var(--line-strong);border-radius:999px;padding:7px 14px;background:var(--surface)}
+  .b-index a:hover{border-color:var(--ink-soft)}
+  .b-index .n{color:var(--muted);font-weight:500;margin-left:5px}
+
+  .b-chapter{margin-top:46px}
+  .b-chapter>h2{font-size:31px;font-weight:650;letter-spacing:-.025em;line-height:1.2}
+  .b-chapter-sub{font-size:14.5px;color:var(--muted);margin-top:4px}
+  .b-section{border-top:1px solid var(--line);padding:22px 0 8px;margin-top:22px}
+  .b-sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .b-sec-head h3{font-size:21px;font-weight:650;letter-spacing:-.015em;line-height:1.3;max-width:62ch}
+  .b-sec-meta{font-size:14.5px;color:var(--muted);white-space:nowrap}
+  .b-sec-meta b{color:var(--ink-soft);font-weight:650}
+  .b-sec-flag{font-size:14px;color:var(--accent-ink);margin-top:4px}
+  .b-rows{margin-top:14px}
+  .b-row{display:grid;grid-template-columns:44px minmax(0,1fr) 150px;gap:16px;align-items:start;padding:12px 2px;border-top:1px solid #f0eae0}
+  .b-row:first-child{border-top:0}
+  .b-rank{font-size:15px;color:#b6ab9b;padding-top:2px}
+  .b-row-title{font-size:17.5px;font-weight:600;line-height:1.35}
+  .b-tags{display:inline-flex;gap:6px;margin-left:8px;vertical-align:2px}
+  .b-q{font-size:14px;color:var(--accent-ink);margin-top:4px;line-height:1.45}
+  .b-effort{text-align:right;font-size:13.5px;color:var(--muted);line-height:1.45;padding-top:2px}
+  .b-effort b{display:block;font-size:15.5px;font-weight:650;color:var(--ink-soft)}
+  .b-hole{border:1px dashed var(--line-strong);border-radius:10px;padding:16px 18px;font-size:15.5px;color:var(--muted);line-height:1.5;margin-top:12px}
+  .b-hole b{display:block;color:var(--accent-ink);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:4px}
+
+  .b-pool{margin-top:40px;border-top:1px solid var(--line-strong);padding-top:18px}
+  .b-pool summary{font-size:17px;font-weight:650;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:baseline;gap:18px}
+  .b-pool summary::-webkit-details-marker{display:none}
+  .b-pool summary::before{content:"+";display:inline-block;width:16px;color:var(--accent);font-weight:700}
+  .b-pool[open] summary::before{content:"\2212"}
+  .b-pool .pool-note{font-size:14.5px;color:var(--muted);margin:8px 0 4px 16px;max-width:70ch;line-height:1.55}
+  .b-pool-list{columns:2;column-gap:40px;margin:14px 0 0 16px}
+  .b-pool-list li{font-size:15px;color:var(--ink-soft);padding:7px 0;border-top:1px solid #f0eae0;break-inside:avoid;line-height:1.4}
+
+  /* B board — full canvas */
+  .b-board-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:16px;border-bottom:2px solid var(--line-strong);flex-wrap:wrap}
+  .b-board-sum{display:flex;flex-wrap:wrap;gap:6px 26px;align-items:baseline;font-size:15.5px;color:var(--muted);padding:16px 0 4px;position:sticky;top:0;background:var(--paper);z-index:5}
+  .b-board-sum b{color:var(--ink);font-weight:650}
+  .b-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:16px;align-items:start}
+  .b-col-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:2px solid var(--line-strong)}
+  .b-col-head h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--ink-soft)}
+  .b-col-n{font-size:15px;color:var(--muted)}
+  .b-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px 16px 13px;margin-top:12px}
+  .b-card h4{font-size:17px;font-weight:600;line-height:1.35}
+  .b-card .a-chain{font-size:13.5px;margin-top:6px}
+  .b-card-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:12px;font-size:13.5px;color:var(--muted)}
+  .b-card-foot b{font-size:14.5px;font-weight:650;color:var(--ink-soft)}
+  .b-card.is-em{border-left:3px solid var(--amber);padding-left:13px}
+  .b-card.is-achieved{background:var(--green-soft);border-color:#dbe4d7}
+  .b-card.is-achieved h4{color:var(--ink-soft);font-weight:550}
+  .b-col-more{font-size:14px;color:var(--muted);padding:14px 2px;line-height:1.5}
+  .b-col-more button{color:var(--accent-ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+  @media (max-width:1060px){
+    .a-shell{grid-template-columns:1fr;gap:22px}
+    .a-rail{position:static}
+  }
+  @media (max-width:820px){
+    .a-board,.b-board{grid-template-columns:1fr}
+    .b-review ul{grid-template-columns:1fr}
+    .b-review li:nth-child(2){border-top:1px solid var(--line)}
+    .a-row,.b-row{grid-template-columns:38px minmax(0,1fr);}
+    .a-effort,.b-effort{grid-column:2;text-align:left;display:flex;gap:8px;align-items:baseline;margin-top:4px}
+    .a-effort b,.b-effort b{display:inline}
+    .b-pool-list{columns:1}
+  }
+</style>
+</head>
+<body>
+  <header class="shell-head">
+    <p class="eyebrow">Prototype &middot; throwaway &middot; not production</p>
+    <h1>Planning is strategy. Implementation is throughput.</h1>
+    <p class="lede">
+      The same seeded quarter, drawn two ways. <b>Planning</b> should make the ladder
+      &mdash; Career Goal, then Quarterly Objective, then Outcome &mdash; impossible to misread,
+      with rank, gaps and Effort as the tools. <b>Implementation</b> should feel like a board
+      you move work across, with counts and Effort as the tools. If the two views read as
+      the same screen with the columns rearranged, this design has failed.
+    </p>
+    <div class="meta">
+      <p class="vnote" id="vnote"></p>
+      <p class="hint">&larr; &rarr; flips variants</p>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <div class="switchbar" role="group" aria-label="Prototype variants">
+    <button type="button" data-step="-1" aria-label="Previous variant">&larr;</button>
+    <span class="vlabel" id="vlabel">A &middot; Rail</span>
+    <button type="button" data-step="1" aria-label="Next variant">&rarr;</button>
+  </div>
+
+  <noscript><p style="max-width:60ch;margin:0 auto;padding:0 32px 80px;font-size:16px">This demo is a single HTML file driven by JavaScript. Enable it, or open the file directly in a browser.</p></noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------
+  // Seeded scenario. Read-only; nothing here is saved.
+  // ---------------------------------------------------------------------
+  var QUARTER = '2026-Q4';
+  var PREVIOUS = '2026-Q3';
+
+  var GOALS = [
+    { id: 'g1', title: 'Become a staff engineer' },
+    { id: 'g2', title: 'Build a durable writing practice' },
+    { id: 'g3', title: 'Get physically stronger' },
+    { id: 'g4', title: 'Learn conversational Japanese' }
+  ];
+
+  var OBJECTIVES = [
+    { id: 'o1', goalId: 'g1', title: 'Ship the platform API v2 migration', carriedFrom: PREVIOUS },
+    { id: 'o2', goalId: 'g1', title: 'Land a staff-level scope on the platform team' },
+    { id: 'o3', goalId: 'g1', title: 'Establish the architecture review forum' },
+    { id: 'o4', goalId: 'g2', title: 'Publish four engineering notes' },
+    { id: 'o5', goalId: 'g2', title: 'Rebuild the personal site' },
+    { id: 'o6', goalId: 'g3', title: 'Train to a 140kg deadlift' }
+  ];
+
+  // Listed in rank order; rank is the index + 1.
+  var OUTCOMES = [
+    { title: 'Ship the auth service cutover', objectiveId: 'o1', boxes: 12, carriedIn: 12, stage: 'doing' },
+    { title: 'Write the platform-scope proposal', objectiveId: 'o2', boxes: 4, carriedIn: 0, stage: 'doing' },
+    { title: 'Publish note #7 on the migration', objectiveId: 'o4', boxes: 4, carriedIn: 0, stage: 'achieved' },
+    { title: 'Move the site to a static build', objectiveId: 'o5', boxes: 5, carriedIn: 0, stage: 'doing' },
+    { title: 'Retire the v1 client shims', objectiveId: 'o1', boxes: 9, carriedIn: 9, stage: 'doing' },
+    { title: 'Draft the forum charter', objectiveId: 'o3', boxes: 2, carriedIn: 0, stage: 'achieved' },
+    { title: 'Prod outage: write the postmortem', objectiveId: null, boxes: 2, carriedIn: 0, stage: 'doing', emergency: true },
+    { title: 'Run the first architecture review', objectiveId: 'o3', boxes: 3, carriedIn: 0, stage: 'doing' },
+    { title: 'Publish the v2 error catalogue', objectiveId: 'o1', boxes: 6, carriedIn: 6, stage: 'achieved' },
+    { title: 'Draft note #8 on review culture', objectiveId: 'o4', boxes: 2, carriedIn: 0, stage: 'doing' },
+    { title: 'Collect three peer reviews of the proposal', objectiveId: 'o2', boxes: 1, carriedIn: 0, stage: 'todo' },
+    { title: 'Rewrite the about page', objectiveId: 'o5', boxes: 1, carriedIn: 0, stage: 'achieved' },
+    { title: 'Recruit two reviewers from data', objectiveId: 'o3', boxes: 1, carriedIn: 0, stage: 'doing' },
+    { title: 'Draft the migration runbook', objectiveId: 'o1', boxes: 2, carriedIn: 2, stage: 'todo' },
+    { title: 'Read the staff-eng handbook', objectiveId: null, boxes: 3, carriedIn: 0, stage: 'todo' },
+    { title: 'Present scope at the platform review', objectiveId: 'o2', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Outline note #9 on the tally model', objectiveId: 'o4', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Delete the legacy webhook fan-out', objectiveId: 'o1', boxes: 3, carriedIn: 3, stage: 'todo' },
+    { title: 'Write the review checklist', objectiveId: 'o3', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Add a notes index', objectiveId: 'o5', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Draft the staff-eng career narrative', objectiveId: 'o2', boxes: 2, carriedIn: 0, stage: 'todo' },
+    { title: 'Publish note #10', objectiveId: 'o4', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Renew the TLS certificates', objectiveId: null, boxes: 1, carriedIn: 0, stage: 'achieved', emergency: true },
+    { title: 'Backfill migration telemetry', objectiveId: 'o1', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Set up RSS', objectiveId: 'o5', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Record the migration retrospective', objectiveId: 'o1', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Sketch the forum\u2019s first quarter', objectiveId: 'o3', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Prune the notes backlog', objectiveId: 'o4', boxes: 1, carriedIn: 0, stage: 'doing' },
+    { title: 'Shadow the staff review panel', objectiveId: 'o2', boxes: 0, carriedIn: 0, stage: 'todo' },
+    { title: 'Fix the notes permalinks', objectiveId: 'o5', boxes: 2, carriedIn: 0, stage: 'doing' }
+  ].map(function (o, i) {
+    return {
+      id: 'u' + (i + 1), rank: i + 1, title: o.title, objectiveId: o.objectiveId,
+      boxes: o.boxes, carriedIn: o.carriedIn, stage: o.stage, emergency: !!o.emergency
+    };
+  });
+
+  // The Inbox: Ideas captured, not committed. No Quarter, no Objective, no Stage, no
+  // Rank, no Effort (ADR 0003). This is the "hundreds over time" case to survive.
+  var IDEA_LEADS = ['Draft', 'Sketch', 'Prototype', 'Audit', 'Rewrite', 'Measure',
+                    'Collect', 'Automate', 'Document', 'Trim', 'Outline', 'Test'];
+  var IDEA_TOPICS = ['the notes index', 'the on-call rota', 'the CSS layer order',
+                     'the deploy pipeline', 'a reading list', 'the interview loop',
+                     'the caching layer', 'the test fixtures', 'a talk proposal',
+                     'the design tokens', 'the error budget', 'the runbook',
+                     'the review checklist', 'the metrics dashboard', 'the glossary'];
+  // 12 leads x 15 topics = 180 unique Ideas, walked with a stride coprime to 180 so
+  // both halves change from one row to the next instead of cycling in lockstep.
+  var IDEAS = [];
+  for (var i = 0; i < 180; i++) {
+    var n = (i * 113) % 180;
+    IDEAS.push(IDEA_LEADS[n % IDEA_LEADS.length] + ' ' + IDEA_TOPICS[Math.floor(n / IDEA_LEADS.length) % IDEA_TOPICS.length]);
+  }
+
+  var STAGES = [
+    { key: 'todo', label: 'Not started' },
+    { key: 'doing', label: 'Doing' },
+    { key: 'achieved', label: 'Achieved' }
+  ];
+
+  // ---------------------------------------------------------------------
+  // Derivations — everything the app would compute rather than store.
+  // ---------------------------------------------------------------------
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function byRank(a, b) { return a.rank - b.rank; }
+  function ranked() { return OUTCOMES.slice().sort(byRank); }
+  function outcomesFor(objectiveId) {
+    return OUTCOMES.filter(function (o) { return o.objectiveId === objectiveId; }).sort(byRank);
+  }
+  function objectivesFor(goalId) {
+    return OBJECTIVES.filter(function (o) { return o.goalId === goalId; });
+  }
+  function parentless() { return OUTCOMES.filter(function (o) { return !o.objectiveId; }).sort(byRank); }
+  function objectiveOf(o) {
+    return OBJECTIVES.filter(function (x) { return x.id === o.objectiveId; })[0] || null;
+  }
+  function goalOf(obj) {
+    return obj ? GOALS.filter(function (g) { return g.id === obj.goalId; })[0] || null : null;
+  }
+  function sumBoxes(list) { return list.reduce(function (n, o) { return n + o.boxes; }, 0); }
+  function objectiveBoxes(id) { return sumBoxes(outcomesFor(id)); }
+  function goalBoxes(id) {
+    return objectivesFor(id).reduce(function (n, obj) { return n + objectiveBoxes(obj.id); }, 0);
+  }
+  function hours(boxes) {
+    var m = boxes * 25;
+    return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm';
+  }
+  function boxesLabel(n) { return n + (n === 1 ? ' box' : ' boxes'); }
+  function totals() {
+    var all = sumBoxes(OUTCOMES);
+    var carried = OUTCOMES.reduce(function (n, o) { return n + o.carriedIn; }, 0);
+    return { all: all, carried: carried, worked: all - carried, count: OUTCOMES.length };
+  }
+
+  // Gaps are computed, never recorded: a goal with no Objective, an Objective with
+  // no Outcomes, a parentless Outcome that is not an Emergency.
+  function reviewItems() {
+    var items = [];
+    GOALS.forEach(function (g) {
+      if (!objectivesFor(g.id).length) items.push({
+        kind: 'goal',
+        title: g.title + ' has no Quarterly Objective in ' + QUARTER + '.',
+        next: 'Add one, or let the goal rest until Q1.'
+      });
+    });
+    OBJECTIVES.forEach(function (obj) {
+      if (!outcomesFor(obj.id).length) items.push({
+        kind: 'objective',
+        title: obj.title + ' has no Implementation Outcomes.',
+        next: 'Add one, or carry the Objective forward empty.'
+      });
+    });
+    parentless().forEach(function (o) {
+      // An achieved Outcome has nothing left to decide.
+      if (o.stage === 'achieved') return;
+      if (o.emergency) {
+        items.push({
+          kind: 'emergency',
+          title: o.title + ' is an Emergency, still unachieved.',
+          next: 'Achieve it or drop it \u2014 finding it a parent was never the point.'
+        });
+      } else {
+        items.push({
+          kind: 'parentless',
+          title: o.title + ' has no parent.',
+          next: 'Attach it to an Objective, or drop it at review.'
+        });
+      }
+    });
+    return items;
+  }
+
+  function chain(o) {
+    if (!o.objectiveId) return { none: true, text: 'No parent' };
+    var obj = objectiveOf(o);
+    return { none: false, goal: goalOf(obj).title, objective: obj.title };
+  }
+  function chainHtml(o) {
+    var c = chain(o);
+    if (c.none) return '<span class="a-none">No parent</span>';
+    return esc(c.goal) + '<span class="sep">&#8594;</span>' + esc(c.objective);
+  }
+  function tagsFor(o) {
+    var out = '';
+    if (o.emergency) out += '<span class="pill pill-em">Emergency</span>';
+    return out ? '<span class="b-tags">' + out + '</span>' : '';
+  }
+
+  // ---------------------------------------------------------------------
+  // Shared pieces
+  // ---------------------------------------------------------------------
+  function viewToggle(mode, cls) {
+    return '<div class="' + (cls || 'vtoggle') + '" role="group" aria-label="View">' +
+      '<button type="button" data-mode="planning" class="' + (mode === 'planning' ? 'is-on' : '') + '" aria-pressed="' + (mode === 'planning') + '">Planning</button>' +
+      '<button type="button" data-mode="implementation" class="' + (mode === 'implementation' ? 'is-on' : '') + '" aria-pressed="' + (mode === 'implementation') + '">Implementation</button>' +
+    '</div>';
+  }
+
+  // One board renderer, two skins. Order inside a column is Rank; the number itself
+  // is a planning concern and is not shown here.
+  function boardHtml(list, prefix, hideAchieved, emptyText) {
+    return '<div class="' + prefix + '-board">' + STAGES.map(function (s) {
+      var outs = list.filter(function (o) { return o.stage === s.key; }).sort(byRank);
+      var hidden = hideAchieved && s.key === 'achieved';
+      return '<section class="' + prefix + '-col" data-stage="' + s.key + '">' +
+        '<header class="' + prefix + '-col-head"><h3>' + s.label + '</h3><span class="' + prefix + '-col-n">' + outs.length + '</span></header>' +
+        (hidden
+          ? '<p class="' + prefix + '-col-more">' + outs.length + ' achieved. <button type="button" data-toggle-achieved="1">Show them</button></p>'
+          : (outs.length ? outs.map(function (o) { return cardHtml(o, prefix); }).join('')
+                         : '<p class="' + prefix + '-col-empty">' + emptyText + '</p>')) +
+      '</section>';
+    }).join('') + '</div>';
+  }
+
+  function cardHtml(o, prefix) {
+    var cls = prefix + '-card' + (o.emergency ? ' is-em' : '') + (o.stage === 'achieved' ? ' is-achieved' : '');
+    var split = o.carriedIn
+      ? '<span class="carry">' + o.carriedIn + ' carried in</span>'
+      : (o.stage === 'achieved' ? '<span class="a-done">&#10003;</span>' : '');
+    var t = 'h4';
+    return '<article class="' + cls + '">' +
+      '<' + t + ' class="' + prefix + '-card-title">' + esc(o.title) + '</' + t + '>' +
+      (o.emergency ? '<span class="pill pill-em" style="margin-top:7px;display:inline-block">Emergency</span>' : '') +
+      '<p class="a-chain">' + chainHtml(o) + '</p>' +
+      '<div class="' + prefix + '-card-foot"><b>' + boxesLabel(o.boxes) + '</b><span>' + hours(o.boxes) + '</span>' + split + '</div>' +
+    '</article>';
+  }
+
+  function boardSummary(list, prefix) {
+    var b = sumBoxes(list);
+    var carried = list.reduce(function (n, o) { return n + o.carriedIn; }, 0);
+    var doing = list.filter(function (o) { return o.stage === 'doing'; }).length;
+    return '<div class="' + prefix + '-board-sum">' +
+      '<span><b>' + list.length + '</b> Outcomes</span>' +
+      '<span><b>' + doing + '</b> doing</span>' +
+      '<span><b>' + sumBoxes(list.filter(function (o) { return o.stage === 'achieved'; })) + '</b> boxes spent</span>' +
+      '<span><b>' + b + '</b> boxes &middot; ' + hours(b) + '</span>' +
+      (carried ? '<span>' + carried + ' carried in</span>' : '') +
+      '<button type="button" class="a-hide" data-toggle-achieved="1">' + (hideAchieved ? 'Show achieved' : 'Hide achieved') + '</button>' +
+    '</div>';
+  }
+
+  // ---------------------------------------------------------------------
+  // VARIANT A — Rail
+  // ---------------------------------------------------------------------
+  function railNode(label, count, scopeKey, on) {
+    return '<button type="button" class="a-node' + (on ? ' is-on' : '') + '" data-scope="' + scopeKey + '"' +
+      (on ? ' aria-current="true"' : '') + '>' +
+      '<span class="a-node-title">' + label + '</span><span class="a-node-n">' + count + '</span>' +
+    '</button>';
+  }
+
+  function aRail() {
+    var t = totals();
+    var html = '<div class="a-rail-head">' +
+      '<p class="a-q">' + QUARTER + '</p>' +
+      '<p class="a-q-sub">' + boxesLabel(t.all) + ' &middot; ' + hours(t.all) + ' &middot; carried from ' + PREVIOUS + '</p>' +
+    '</div>';
+
+    html += '<div class="a-rail-sec">' + railNode('All Outcomes', t.count, 'all', scope === 'all') + '</div>';
+
+    html += '<div class="a-rail-sec">';
+    GOALS.forEach(function (g) {
+      var objs = objectivesFor(g.id);
+      html += '<div class="a-goal"><h3>' + esc(g.title) + '</h3><div class="a-obj-list">';
+      if (!objs.length) {
+        html += '<p class="a-hole">No Objective this quarter</p>';
+      }
+      objs.forEach(function (obj) {
+        var n = outcomesFor(obj.id).length;
+        html += '<button type="button" class="a-obj' + (scope === obj.id ? ' is-on' : '') + '" data-scope="' + obj.id + '"' +
+          (scope === obj.id ? ' aria-current="true"' : '') + '>' +
+          '<span>' + esc(obj.title) + '</span><span class="n">' + n + '</span>' +
+        '</button>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+
+    html += '<div class="a-rail-sec">' +
+      railNode('No parent', parentless().length, 'noparent', scope === 'noparent') +
+    '</div>';
+
+    html += '<div class="a-rail-sec">' +
+      '<p class="a-sec-label">Outside the quarter</p>' +
+      railNode('Inbox', IDEAS.length, 'ideas', scope === 'ideas') +
+    '</div>';
+
+    html += '<div class="a-rail-foot">' +
+      '<b>' + t.worked + '</b> boxes worked here &middot; <b>' + t.carried + '</b> carried in<br>' +
+      '<b>' + IDEAS.length + '</b> Ideas in the Inbox, none in a Quarter' +
+    '</div>';
+    return html;
+  }
+
+  function scopedOutcomes() {
+    if (scope === 'all') return ranked();
+    if (scope === 'noparent') return parentless();
+    if (scope === 'ideas') return [];
+    return outcomesFor(scope);
+  }
+
+  function aPaneHead(mode) {
+    var crumb = 'Quarter &middot; ' + QUARTER;
+    var title, sub;
+    if (scope === 'all') {
+      title = 'The whole quarter';
+      sub = totals().count + ' Outcomes across ' + OBJECTIVES.length + ' Objectives and ' + GOALS.length + ' Career Goals';
+    } else if (scope === 'noparent') {
+      title = 'No parent';
+      sub = parentless().length + ' Outcomes to attach or drop at review';
+    } else if (scope === 'ideas') {
+      crumb = 'Outside the quarter &middot; not part of ' + QUARTER;
+      title = 'Inbox';
+      sub = IDEAS.length + ' Ideas captured, none placed in a Quarter yet';
+    } else {
+      var obj = OBJECTIVES.filter(function (o) { return o.id === scope; })[0];
+      crumb = esc(goalOf(obj).title) + ' &middot; Quarterly Objective';
+      title = esc(obj.title);
+      sub = outcomesFor(obj.id).length + ' Outcomes &middot; ' + objectiveBoxes(obj.id) + ' boxes &middot; ' + hours(objectiveBoxes(obj.id)) +
+        (obj.carriedFrom ? ' &middot; carried from ' + obj.carriedFrom : '');
+    }
+    return '<div class="a-pane-head"><div>' +
+      '<p class="a-crumb">' + crumb + '</p>' +
+      '<h2 class="a-title">' + title + '</h2>' +
+      '<p class="a-sub">' + sub + '</p>' +
+    '</div>' + viewToggle(mode) + '</div>';
+  }
+
+  function aRow(o, showChain) {
+    return '<div class="a-row">' +
+      '<span class="a-rank">' + o.rank + '</span>' +
+      '<div>' +
+        '<div class="a-row-title">' + esc(o.title) + tagsFor(o) + '</div>' +
+        (showChain ? '<p class="a-chain">' + chainHtml(o) + '</p>' : '') +
+      '</div>' +
+      '<div class="a-effort"><b>' + boxesLabel(o.boxes) + '</b>' + hours(o.boxes) +
+        (o.carriedIn ? '<span class="a-split">' + o.carriedIn + ' carried in</span>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function aPlan() {
+    var list = scopedOutcomes();
+    var html = '';
+    if (scope === 'ideas') {
+      html += '<p class="a-sub" style="margin:18px 0 6px;max-width:62ch">These are Ideas, not Outcomes: no Quarter, no Objective, no Effort, no rank. Triage promotes one into a Career Goal, an Objective or an Outcome \u2014 which consumes it \u2014 or discards it. Nothing here is a Gap.</p>';
+      html += '<div class="a-pool" style="margin-top:14px;border-top:1px solid var(--line)">' +
+        IDEAS.slice(0, 40).map(function (t) {
+          return '<div class="a-row" style="grid-template-columns:minmax(0,1fr);padding:11px 4px"><span class="a-row-title" style="font-size:16px;font-weight:500">' + esc(t) + '</span></div>';
+        }).join('') +
+      '</div>';
+      html += '<p class="a-sub" style="margin-top:16px">Showing 40 of ' + IDEAS.length + '. An Inbox is cleared in batches, not read end to end \u2014 the count in the rail is the part that matters.</p>';
+      return html;
+    }
+    if (!list.length) {
+      html += '<p class="a-empty">Nothing here yet.</p>';
+    } else {
+      // When the pane is not already inside one Objective, the chain has to be on the row.
+      var showChain = scope === 'all' || scope === 'noparent';
+      html += list.map(function (o) { return aRow(o, showChain); }).join('');
+    }
+    if (scope === 'all') html += aReview();
+    return html;
+  }
+
+  function aReview() {
+    var items = reviewItems();
+    return '<section class="a-review">' +
+      '<h3>Quarter review &middot; ' + items.length + ' open</h3>' +
+      '<p>What the plan cannot answer for you. Each one has a next action.</p>' +
+      '<ul>' + items.map(function (it) {
+        return '<li>' + esc(it.title) + '<p class="next"><b>Next:</b> ' + esc(it.next) + '</p></li>';
+      }).join('') + '</ul>' +
+    '</section>';
+  }
+
+  function aBoard() {
+    var list = scopedOutcomes();
+    if (scope === 'ideas') {
+      return '<p class="a-empty" style="margin-top:22px;max-width:62ch">The Inbox has no stages. An Idea is not an Outcome, so it never appears on the board \u2014 triage is what puts one into the quarter.</p>';
+    }
+    return boardSummary(list, 'a') + boardHtml(list, 'a', hideAchieved, 'Nothing here.');
+  }
+
+  // ---------------------------------------------------------------------
+  // VARIANT B — Document
+  // ---------------------------------------------------------------------
+  function bTop(mode, sub) {
+    return '<div class="b-top">' +
+      '<div><p class="b-q">' + QUARTER + '</p><p class="b-q-sub">' + sub + '</p></div>' +
+      viewToggle(mode) +
+    '</div>';
+  }
+
+  function bReview() {
+    var items = reviewItems();
+    return '<section class="b-review">' +
+      '<h2>Quarter review &middot; ' + items.length + ' open</h2>' +
+      '<ul>' + items.map(function (it) {
+        return '<li>' + esc(it.title) + '<p class="next"><b>Next:</b> ' + esc(it.next) + '</p></li>';
+      }).join('') + '</ul>' +
+    '</section>';
+  }
+
+  function bRow(o, showChain) {
+    var q = !o.objectiveId
+      ? '<p class="b-q">' + (o.emergency ? 'Emergency \u2014 achieve it or drop it.' : 'No parent \u2014 attach it, or drop it at review.') + '</p>'
+      : '';
+    return '<div class="b-row">' +
+      '<span class="b-rank">' + o.rank + '</span>' +
+      '<div>' +
+        '<div class="b-row-title">' + esc(o.title) + tagsFor(o) + '</div>' +
+        (showChain ? '<p class="a-chain">' + chainHtml(o) + '</p>' : '') + q +
+      '</div>' +
+      '<div class="b-effort"><b>' + boxesLabel(o.boxes) + '</b>' + hours(o.boxes) +
+        (o.carriedIn ? '<span class="carry">' + o.carriedIn + ' carried in</span>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function bSection(obj) {
+    var outs = outcomesFor(obj.id);
+    var b = objectiveBoxes(obj.id);
+    var html = '<section class="b-section">' +
+      '<div class="b-sec-head">' +
+        '<h3>' + esc(obj.title) + '</h3>' +
+        '<p class="b-sec-meta"><b>' + outs.length + '</b> Outcomes &middot; <b>' + b + '</b> boxes &middot; ' + hours(b) + '</p>' +
+      '</div>' +
+      (obj.carriedFrom ? '<p class="b-sec-flag">Carried forward from ' + esc(obj.carriedFrom) + '</p>' : '');
+    if (!outs.length) {
+      html += '<div class="b-hole"><b>Gap</b>No Implementation Outcomes. Add one, or carry the Objective forward empty.</div>';
+    } else {
+      html += '<div class="b-rows">' + outs.map(function (o) { return bRow(o, false); }).join('') + '</div>';
+    }
+    return html + '</section>';
+  }
+
+  function bPlan() {
+    var t = totals();
+    var html = bTop('planning', 'carried forward from ' + PREVIOUS);
+
+    html += '<div class="b-strip">' +
+      '<span><b>' + t.count + '</b> Outcomes</span>' +
+      '<span><b>' + GOALS.length + '</b> Career Goals</span>' +
+      '<span><b>' + OBJECTIVES.length + '</b> Objectives</span>' +
+      '<span><b>' + t.all + '</b> boxes &middot; ' + hours(t.all) + '</span>' +
+      '<span><b>' + t.carried + '</b> carried in</span>' +
+      '<span><b>' + IDEAS.length + '</b> in the Inbox</span>' +
+    '</div>';
+
+    html += bReview();
+
+    html += '<nav class="b-index" aria-label="Career Goals">' + GOALS.map(function (g) {
+      return '<a href="#goal-' + g.id + '">' + esc(g.title) + '<span class="n">' + goalBoxes(g.id) + '</span></a>';
+    }).join('') + '</nav>';
+
+    GOALS.forEach(function (g) {
+      var objs = objectivesFor(g.id);
+      html += '<section class="b-chapter" id="goal-' + g.id + '">' +
+        '<h2>' + esc(g.title) + '</h2>' +
+        '<p class="b-chapter-sub">' + (objs.length
+          ? objs.length + (objs.length === 1 ? ' Quarterly Objective' : ' Quarterly Objectives') + ' in ' + QUARTER + ' &middot; ' + goalBoxes(g.id) + ' boxes'
+          : 'No Quarterly Objective in ' + QUARTER) + '</p>';
+      if (!objs.length) {
+        html += '<div class="b-hole"><b>Gap</b>A Career Goal with nothing committed to it this quarter. Add an Objective, or let it rest.</div>';
+      }
+      objs.forEach(function (obj) { html += bSection(obj); });
+      html += '</section>';
+    });
+
+    var pl = parentless();
+    html += '<section class="b-chapter">' +
+      '<h2>No parent</h2>' +
+      '<p class="b-chapter-sub">' + pl.length + ' Outcomes with no Quarterly Objective &middot; ' + sumBoxes(pl) + ' boxes</p>' +
+      '<div class="b-rows">' + pl.map(function (o) { return bRow(o, false); }).join('') + '</div>' +
+    '</section>';
+
+    html += '<details class="b-pool">' +
+      '<summary><span>Inbox &middot; ' + IDEAS.length + ' Ideas, outside the quarter</span></summary>' +
+      '<p class="pool-note">An Idea has no Quarter, no Objective, no Effort and no rank, so nothing here touches this quarter\u2019s figures and nothing here can turn into review debt. Triage promotes one into a Career Goal, an Objective or an Outcome \u2014 which consumes it \u2014 or discards it.</p>' +
+      '<ul class="b-pool-list">' + IDEAS.map(function (t2) { return '<li>' + esc(t2) + '</li>'; }).join('') + '</ul>' +
+    '</details>';
+
+    return '<div class="b-shell">' + html + '</div>';
+  }
+
+  function bBoard() {
+    var html = bTop('implementation', 'the board for ' + QUARTER);
+    html += boardSummary(ranked(), 'b');
+    html += boardHtml(ranked(), 'b', hideAchieved, 'Nothing here.');
+    return '<div class="b-shell">' + html + '</div>';
+  }
+
+  // ---------------------------------------------------------------------
+  // Variants
+  // ---------------------------------------------------------------------
+  var VARIANTS = {
+    A: {
+      key: 'A',
+      name: 'Rail',
+      note: 'The tree is the navigation: a rail holding the Quarter, all four Career Goals with their Objectives, and the parked pool, beside a pane that shows only what you picked. Planning is a ranked list with the chain on every row; Implementation is a three-column board behind the same rail, which doubles as the filter. Watch whether the rail earns its width on the board, and whether drilling feels like planning.',
+      render: function (mode) {
+        return '<div class="a-shell"><aside class="a-rail">' + aRail() + '</aside>' +
+          '<div class="a-pane">' + aPaneHead(mode) + (mode === 'planning' ? aPlan() : aBoard()) + '</div></div>';
+      }
+    },
+    B: {
+      key: 'B',
+      name: 'Document',
+      note: 'The page is the navigation, with no rail: planning reads top to bottom as a review sheet \u2014 summary, open review items, then each Career Goal as a chapter with its Objectives as sections \u2014 and the parked pool folds away at the bottom. Implementation drops the document entirely for a full-width board. Watch whether the hierarchy still reads without a tree beside it, and whether the board feels like a different tool rather than the same page restyled.',
+      render: function (mode) {
+        return mode === 'planning' ? bPlan() : bBoard();
+      }
+    }
+  };
+
+  var KEYS = ['A', 'B'];
+
+  // ---------------------------------------------------------------------
+  // Shell
+  // ---------------------------------------------------------------------
+  var app = document.getElementById('app');
+  var vlabel = document.getElementById('vlabel');
+  var vnote = document.getElementById('vnote');
+
+  function readParam(name) {
+    try { return new URLSearchParams(window.location.search).get(name); } catch (e) { return null; }
+  }
+  function writeParams() {
+    try {
+      var url = new URL(window.location.href);
+      url.searchParams.set('variant', key);
+      url.searchParams.set('view', mode);
+      if (key === 'A') url.searchParams.set('scope', scope); else url.searchParams.delete('scope');
+      window.history.replaceState(null, '', url.toString());
+    } catch (e) { /* file:// in some browsers refuses replaceState */ }
+  }
+
+  var key = KEYS.indexOf(readParam('variant')) >= 0 ? readParam('variant') : 'A';
+  var mode = readParam('view') === 'implementation' ? 'implementation' : 'planning';
+  var hideAchieved = false;
+  var scopeParam = readParam('scope');
+  var scope = scopeParam || 'all';
+
+  function validScope(s) {
+    if (s === 'all' || s === 'noparent' || s === 'ideas') return true;
+    return OBJECTIVES.some(function (o) { return o.id === s; });
+  }
+  if (!validScope(scope)) scope = 'all';
+
+  function bind() {
+    Array.prototype.forEach.call(app.querySelectorAll('[data-mode]'), function (btn) {
+      btn.addEventListener('click', function () {
+        mode = btn.getAttribute('data-mode');
+        render();
+      });
+    });
+    Array.prototype.forEach.call(app.querySelectorAll('[data-scope]'), function (btn) {
+      btn.addEventListener('click', function () {
+        scope = btn.getAttribute('data-scope');
+        render();
+      });
+    });
+    Array.prototype.forEach.call(app.querySelectorAll('[data-toggle-achieved]'), function (btn) {
+      btn.addEventListener('click', function () {
+        hideAchieved = !hideAchieved;
+        render();
+      });
+    });
+  }
+
+  function render() {
+    var v = VARIANTS[key];
+    app.innerHTML = v.render(mode);
+    vlabel.textContent = v.key + ' \u00b7 ' + v.name;
+    vnote.innerHTML = '<strong>' + esc(v.key) + ' \u2014 ' + esc(v.name) + '.</strong> ' + esc(v.note);
+    bind();
+    writeParams();
+  }
+
+  function step(delta) {
+    var idx = KEYS.indexOf(key);
+    key = KEYS[(idx + delta + KEYS.length) % KEYS.length];
+    render();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.switchbar [data-step]'), function (btn) {
+    btn.addEventListener('click', function () { step(parseInt(btn.getAttribute('data-step'), 10)); });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
